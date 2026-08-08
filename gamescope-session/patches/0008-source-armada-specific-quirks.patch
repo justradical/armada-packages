@@ -1,4 +1,4 @@
-From a15ae59a216b5bc381f4d8f0b979a3f473085d0e Mon Sep 17 00:00:00 2001
+From c98c84bbe4904686f189cbf0e0d093151881d44d Mon Sep 17 00:00:00 2001
 From: Radical <radical@radical.fun>
 Date: Wed, 5 Aug 2026 05:38:36 +0200
 Subject: [PATCH] source armada specific quirks
@@ -8,7 +8,7 @@ Subject: [PATCH] source armada specific quirks
  1 file changed, 5 insertions(+)
 
 diff --git a/usr/share/gamescope-session-plus/gamescope-session-plus b/usr/share/gamescope-session-plus/gamescope-session-plus
-index 73564da..8a89c01 100755
+index 73564da..c5d96fe 100755
 --- a/usr/share/gamescope-session-plus/gamescope-session-plus
 +++ b/usr/share/gamescope-session-plus/gamescope-session-plus
 @@ -117,6 +117,11 @@ if [ -f /usr/share/gamescope-session-plus/device-quirks ]; then
@@ -17,7 +17,7 @@ index 73564da..8a89c01 100755
  
 +# Source Armada device quirks if exists
 +if [ -f /usr/libexec/armada/device-env ]; then
-+	. /usr/share/armada/device-env
++        eval "$(/usr/libexec/armada/device-env)"
 +fi
 +
  # Source client app specific configuration files
