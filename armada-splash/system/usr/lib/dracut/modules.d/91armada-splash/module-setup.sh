@@ -21,6 +21,7 @@ install() {
         /usr/libexec/armada/device-env \
         /usr/share/armada/splash/splash.asp \
         /usr/share/armada/splash/font.ttf \
+        /usr/share/gamescope-session-plus/device-quirks \
         tr cat sleep
 
     local f

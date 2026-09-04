@@ -14,6 +14,7 @@ BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  libX11-devel
 BuildRequires:  libdrm-devel
+Requires: gamescope-session
 
 %description
 %{name} is the boot splash that Armada uses instead of Plymouth
