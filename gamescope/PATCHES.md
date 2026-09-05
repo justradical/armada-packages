@@ -26,7 +26,9 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   source: armada
 - `patches/0011-color-fall-back-to-app-hdr-metadata-for-tonemapping.patch`
   source: armada
-- `patches/0013-wlserver-implement-drm-lease-v1.patch`
+- `patches/0012-wlserver-implement-drm-lease-v1.patch`
   source: armada
-- `patches/0014-wsi-layer-pass-through-display-surface-swapchains.patch`
+- `patches/0013-wsi-layer-pass-through-display-surface-swapchains.patch`
+  source: armada
+- `patches/0014-feat-drm-run-a-compositor-from-the-leased-output.patch`
   source: armada
