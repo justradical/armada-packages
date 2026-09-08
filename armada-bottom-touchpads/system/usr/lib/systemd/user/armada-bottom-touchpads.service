@@ -1,0 +1,16 @@
+[Unit]
+Description=Armada bottom-screen touchpads (InputPlumber bridge)
+PartOf=gamescope-session-plus@steam.service
+# Mutually exclusive with the bottom-screen desktop session: both are
+# socket companions of the same gamescope DRM lease broker, and the broker
+# only ever grants the lease to one at a time.
+Conflicts=armada-bottom-screen.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/armada-bottom-touchpads
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=gamescope-session-plus@steam.service

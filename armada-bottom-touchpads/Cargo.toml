@@ -1,0 +1,22 @@
+[package]
+name = "armada-bottom-touchpads"
+version = "0.1.0"
+edition = "2021"
+description = "Bridges gamescope's DRM lease companion socket to InputPlumber, presenting the leased bottom screen's touch input as a pair of Steam Deck style left/right touchpads."
+license = "GPL-2.0-or-later"
+
+[[bin]]
+name = "armada-bottom-touchpads"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+log = "0.4"
+env_logger = "0.11"
+thiserror = "2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+zbus = { version = "5.12", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+
+[profile.release]
+lto = true
