@@ -84,9 +84,42 @@ already does for switching controller emulation types at runtime:
    how `deck-uhid` and friends are toggled today rather than baked in.
 3. Calls `org.shadowblip.Input.CompositeDevice.SendEvent` on it with
    capability strings `Touchpad:LeftPad:Touch:Motion` /
-   `Touchpad:RightPad:Touch:Motion` (value: a 2-element array of doubles)
-   and `Touchpad:{Left,Right}Pad:Touch:Button:Touch` (value: bool), which
-   InputPlumber fans out to that device's currently attached targets.
+   `Touchpad:RightPad:Touch:Motion` and a 5-element array
+   `[index, is_touching, x, y, pressure]` (see "The SendEvent value
+   encoding" below — a plain `(x, y)` pair does not work), plus
+   `Touchpad:{Left,Right}Pad:Touch:Button:Touch` (value: bool) for parity
+   with the real Steam Deck driver, which InputPlumber fans out to that
+   device's currently attached targets.
+
+### The SendEvent value encoding
+
+InputPlumber's `touchpad` target device
+(`../../InputPlumber/src/input/target/touchpad.rs`) only reacts to a
+`Touch::Motion` capability whose value is `InputValue::Touch { index,
+is_touching, pressure, x, y }` — it pattern-matches on that variant
+specifically and silently does nothing for anything else, `Vector2`
+included. But `SendEvent`'s value conversion
+(`../../InputPlumber/src/dbus/interface/composite_device.rs`) originally only
+built `Bool`/`Float`/`Vector2`/`Vector3` from the D-Bus value — there was no
+way to construct `InputValue::Touch` through it at all, so touch events sent
+that way were silently dropped regardless of controller type. InputPlumber
+patch `../inputplumber/patches/0004-feat-send_event-support-touch-values.patch`
+adds a 5-element array case that builds `InputValue::Touch` from
+`[index, is_touching, x, y, pressure]` — this program is unusable without
+that patch built into the InputPlumber package it talks to.
+
+`index` is the target's multi-touch slot (0-9, shared across `LeftPad` and
+`RightPad` since both route through one virtual device). We assign each pad
+a fixed slot — `LeftPad` → 0, `RightPad` → 1 — so a simultaneous touch on
+each pad doesn't collide; the real Steam Deck driver hardcodes `index: 0`
+for both (`.../src/drivers/steam_deck/driver.rs`, `// TODO: Something
+else`) and so can't represent that case.
+
+Because `is_touching` lives inside this same value, `Touch::Button:Touch`
+alone (a bare `Bool`) does nothing on the `touchpad` target — contact
+start/end has to be reported as part of a `Touch::Motion` call. On `Up` we
+resend the touch's last known position with `is_touching: false` rather
+than only sending the (ignored, by this target) button-up event.
 
 Calling `SendEvent` requires polkit action `org.shadowblip.Input.*`, which
 InputPlumber's shipped rules
@@ -146,6 +179,28 @@ itself emit `PropertiesChanged` today — the emission call in InputPlumber is
 present but commented out — so it can't be watched directly; that's the
 other reason the `controller-type` fix above matters, rather than trying to
 observe target-list changes as they happen.)
+
+## Troubleshooting
+
+The service is disabled by default (see "Packaging" below) — nothing enables
+it automatically, so touchpads doing nothing is expected until something
+starts it: `systemctl --user start armada-bottom-touchpads.service`. Check
+`journalctl --user -u armada-bottom-touchpads -e` for what it's doing.
+
+Once it's running, confirm `touchpad` actually made it into the target list:
+
+```bash
+busctl --system tree org.shadowblip.InputPlumber   # find the CompositeDeviceN path
+busctl --system get-property org.shadowblip.InputPlumber \
+    /org/shadowblip/InputPlumber/CompositeDeviceN \
+    org.shadowblip.Input.CompositeDevice TargetDevices
+```
+
+If `touchpad` is attached but nothing happens on-screen, the InputPlumber
+build in use is almost certainly missing patch 0004 (see above) — this
+program predates that patch, and without it every touch event is silently
+dropped by the `touchpad` target regardless of what this program sends or
+what controller type is selected.
 
 ## Known limitations (prototype)
 

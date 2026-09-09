@@ -48,6 +48,17 @@ fn pad_for_x(x: f32) -> Pad {
     }
 }
 
+/// Which pad an active touch landed on, and its last reported position —
+/// needed to resend on `Up`, since `touch_motion`'s `is_touching: false`
+/// is what actually tells InputPlumber's `touchpad` target the contact
+/// ended (a bare `touch_button` call alone does nothing there; see
+/// `inputplumber::InputPlumber::touch_motion`).
+struct ActiveTouch {
+    pad: Pad,
+    x: f64,
+    y: f64,
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     env_logger::init();
@@ -205,10 +216,10 @@ async fn serve_touches(
             ))
         })?;
 
-    // Which pad (if any) each active touch id landed on, so a drag that
-    // crosses the center line stays pinned to the pad it started on instead
-    // of jumping to the other one mid-gesture.
-    let mut active_touches: HashMap<i32, Pad> = HashMap::new();
+    // Keyed by the broker's touch id, so a drag that crosses the center
+    // line stays pinned to the pad it started on instead of jumping to the
+    // other one mid-gesture.
+    let mut active_touches: HashMap<i32, ActiveTouch> = HashMap::new();
 
     loop {
         let event = tokio::select! {
@@ -256,29 +267,33 @@ async fn serve_touches(
         match event.kind {
             EventKind::Down => {
                 let pad = pad_for_x(event.x);
-                active_touches.insert(event.touch_id, pad);
                 let (x, y) = rescale(pad, event.x, event.y);
-                log_dbus_err(ip.touch_motion(pad, x, y).await, "touch motion");
-                log_dbus_err(ip.touch_button(pad, true).await, "touch down");
+                active_touches.insert(event.touch_id, ActiveTouch { pad, x, y });
+                log_dbus_err(ip.touch_motion(pad, true, x, y).await, "touch down");
+                log_dbus_err(ip.touch_button(pad, true).await, "touch down (button)");
             }
             EventKind::Motion => {
                 let pad = match active_touches.get(&event.touch_id) {
-                    Some(pad) => *pad,
+                    Some(touch) => touch.pad,
                     None => {
                         // Missed the Down for this id; recover instead of
                         // dropping the gesture on the floor.
                         let pad = pad_for_x(event.x);
-                        active_touches.insert(event.touch_id, pad);
                         log_dbus_err(ip.touch_button(pad, true).await, "touch down (recovered)");
                         pad
                     }
                 };
                 let (x, y) = rescale(pad, event.x, event.y);
-                log_dbus_err(ip.touch_motion(pad, x, y).await, "touch motion");
+                active_touches.insert(event.touch_id, ActiveTouch { pad, x, y });
+                log_dbus_err(ip.touch_motion(pad, true, x, y).await, "touch motion");
             }
             EventKind::Up => {
-                if let Some(pad) = active_touches.remove(&event.touch_id) {
-                    log_dbus_err(ip.touch_button(pad, false).await, "touch up");
+                if let Some(touch) = active_touches.remove(&event.touch_id) {
+                    log_dbus_err(
+                        ip.touch_motion(touch.pad, false, touch.x, touch.y).await,
+                        "touch up",
+                    );
+                    log_dbus_err(ip.touch_button(touch.pad, false).await, "touch up (button)");
                 }
             }
             EventKind::Suspend => {
@@ -298,9 +313,13 @@ async fn serve_touches(
     }
 }
 
-async fn release_all(ip: &InputPlumber<'_>, active_touches: &mut HashMap<i32, Pad>) {
-    for (_, pad) in active_touches.drain() {
-        log_dbus_err(ip.touch_button(pad, false).await, "touch up");
+async fn release_all(ip: &InputPlumber<'_>, active_touches: &mut HashMap<i32, ActiveTouch>) {
+    for (_, touch) in active_touches.drain() {
+        log_dbus_err(
+            ip.touch_motion(touch.pad, false, touch.x, touch.y).await,
+            "touch up",
+        );
+        log_dbus_err(ip.touch_button(touch.pad, false).await, "touch up (button)");
     }
 }
 

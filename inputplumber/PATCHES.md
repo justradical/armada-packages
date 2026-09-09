@@ -8,3 +8,7 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   source: armada
 - `patches/0002-fix-force-feedback-reset-effects-when-replacing-targets.patch`
   source: armada
+- `patches/0003-feat-Hardware-Support-Add-AYANEO-Pocket-DS.patch`
+  source: armada
+- `patches/0004-feat-send_event-support-touch-values.patch`
+  source: armada

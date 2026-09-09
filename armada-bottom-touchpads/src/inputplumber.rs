@@ -64,6 +64,22 @@ impl Pad {
             Pad::Right => "RightPad",
         }
     }
+
+    /// The multi-touch slot this pad's contact is reported on in
+    /// InputPlumber's `touchpad` target device. Both `LeftPad` and
+    /// `RightPad` route through that single shared virtual device (see
+    /// `InputPlumber/src/input/target/touchpad.rs`), so without distinct
+    /// slots a simultaneous touch on each pad would collide on the same
+    /// one — the real Steam Deck driver hardcodes slot 0 for both
+    /// (`driver.rs`, `index: 0, // TODO: Something else`) and so can't
+    /// represent that case; giving each pad its own fixed slot here avoids
+    /// inheriting that limitation.
+    fn touch_slot(self) -> u8 {
+        match self {
+            Pad::Left => 0,
+            Pad::Right => 1,
+        }
+    }
 }
 
 impl std::fmt::Display for Pad {
@@ -165,13 +181,38 @@ impl InputPlumber<'_> {
         self.device.set_target_devices(targets).await
     }
 
-    pub async fn touch_motion(&self, pad: Pad, x: f64, y: f64) -> zbus::Result<()> {
+    /// Reports a touch's position and contact state for `pad`. The
+    /// `touchpad` target's motion handler needs this bundled into one
+    /// `InputValue::Touch` — a plain (x, y) `Vector2` doesn't carry
+    /// `is_touching`, so it's silently ignored — hence the 5-element
+    /// `[index, is_touching, x, y, pressure]` encoding InputPlumber's
+    /// `SendEvent` maps to `InputValue::Touch` (see InputPlumber patch
+    /// 0004-feat-send_event-support-touch-values.patch).
+    pub async fn touch_motion(
+        &self,
+        pad: Pad,
+        is_touching: bool,
+        x: f64,
+        y: f64,
+    ) -> zbus::Result<()> {
         let event = format!("Touchpad:{pad}:Touch:Motion");
+        let index = pad.touch_slot() as f64;
+        let is_touching = if is_touching { 1.0 } else { 0.0 };
+        let pressure = 1.0;
         self.device
-            .send_event(&event, Value::from(vec![x, y]))
+            .send_event(
+                &event,
+                Value::from(vec![index, is_touching, x, y, pressure]),
+            )
             .await
     }
 
+    /// Reports finger contact for `pad` as its own capability, matching
+    /// the real Steam Deck driver (which sends this alongside, not instead
+    /// of, touch motion). InputPlumber's `touchpad` target itself doesn't
+    /// use it — it derives touch state from `touch_motion`'s embedded
+    /// `is_touching` — but other targets (e.g. a gamepad's touch-sensor
+    /// indicator) may.
     pub async fn touch_button(&self, pad: Pad, is_touching: bool) -> zbus::Result<()> {
         let event = format!("Touchpad:{pad}:Touch:Button:Touch");
         self.device

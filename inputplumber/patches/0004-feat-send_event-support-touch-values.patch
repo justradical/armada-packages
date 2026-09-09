@@ -1,0 +1,51 @@
+From: Radical <radical@radical.fun>
+Subject: [PATCH] feat(dbus): support touch values in SendEvent
+
+CompositeDevice.SendEvent's array handling only builds Vector2/Vector3, so
+external callers have no way to drive a Touchpad(*::Touch::Motion)
+capability: the touchpad target's motion handler pattern-matches on
+InputValue::Touch specifically (index, is_touching, pressure, x, y) and
+silently no-ops on anything else, including a Vector2 of just (x, y).
+
+Accept a 5-element array of [index, is_touching, x, y, pressure] and build
+an InputValue::Touch from it, alongside the existing 2/3-element cases.
+---
+ src/dbus/interface/composite_device.rs | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/src/dbus/interface/composite_device.rs b/src/dbus/interface/composite_device.rs
+index e3db7ac..dd6db39 100644
+--- a/src/dbus/interface/composite_device.rs
++++ b/src/dbus/interface/composite_device.rs
+@@ -273,6 +273,28 @@ impl CompositeDeviceInterface {
+                         z: Some(z),
+                     }
+                 }
++                // [index, is_touching, x, y, pressure]. Used for touchpad/touchscreen
++                // motion capabilities, whose native value carries a multi-touch slot
++                // and touch state alongside position, unlike a plain Vector2.
++                5 => {
++                    let mut parts = [0f64; 5];
++                    for (i, part) in parts.iter_mut().enumerate() {
++                        let item: &Value = v.get(i).unwrap().unwrap();
++                        *part = f64::try_from(item).map_err(|_| {
++                            fdo::Error::Failed(
++                                "Failed to parse touch value into float.".to_string(),
++                            )
++                        })?;
++                    }
++                    let [index, is_touching, x, y, pressure] = parts;
++                    InputValue::Touch {
++                        index: index as u8,
++                        is_touching: is_touching != 0.0,
++                        pressure: Some(pressure),
++                        x: Some(x),
++                        y: Some(y),
++                    }
++                }
+                 _ => InputValue::None,
+             },
+             _ => InputValue::None,
+--
+2.55.0
+
