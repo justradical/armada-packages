@@ -40,3 +40,5 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   - source: armada
 - `patches/0018-Implement-Snapdragon-Game-Super-Resolution-1-upscaling.patch`
   - source: https://github.com/ValveSoftware/gamescope/pull/2399
+- `patches/0019-force-fsr-as-qsr.patch`
+  source: armada

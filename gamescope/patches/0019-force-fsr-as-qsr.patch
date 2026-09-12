@@ -1,0 +1,122 @@
+From: armada <armada@armadaos.dev>
+Subject: [PATCH] steamcompmgr: substitute Snapdragon GSR for Steam's FSR scaling filter
+
+Steam's "Sharp" scaling filter option requests GAMESCOPE_SCALING_FILTER
+mode 3, which maps to AMD FidelityFX Super Resolution 1.0. On Snapdragon
+hardware the GSR 1 shader added for the custom "deckard" filter mode
+(mode 5) gives better quality/performance than a software FSR pass, so
+substitute it in for FSR requests whenever the source layer supports it.
+
+On by default. Live-tunable at runtime via the GAMESCOPE_FORCE_FSR_AS_QSR
+root window property (no restart required, same as the existing scaling
+filter and sharpness atoms); the GAMESCOPE_FORCE_FSR_AS_QSR environment
+variable controls the startup default for session/config-file driven
+setups.
+
+diff --git a/src/main.cpp b/src/main.cpp
+index aa7c6f7..8bc003b 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -344,6 +344,7 @@ GamescopeUpscaleScaler g_upscaleScaler = GamescopeUpscaleScaler::AUTO;
+ GamescopeUpscaleFilter g_wantedUpscaleFilter = GamescopeUpscaleFilter::LINEAR;
+ GamescopeUpscaleScaler g_wantedUpscaleScaler = GamescopeUpscaleScaler::AUTO;
+ int g_upscaleFilterSharpness = 2;
++bool g_bForceFSRAsGSR = true;
+
+ gamescope::GamescopeModeGeneration g_eGamescopeModeGeneration = gamescope::GAMESCOPE_MODE_GENERATE_CVT;
+
+@@ -825,6 +826,9 @@ int main(int argc, char **argv)
+ 	// Force disable this horrible broken layer.
+ 	setenv("DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1", "1", 1);
+
++	if ( const char *pszForceFSRAsQSR = getenv( "GAMESCOPE_FORCE_FSR_AS_QSR" ) )
++		g_bForceFSRAsGSR = !!atoi( pszForceFSRAsQSR );
++
+ 	static std::string optstring = build_optstring(gamescope_options);
+ 	gamescope_optstring = optstring.c_str();
+
+diff --git a/src/main.hpp b/src/main.hpp
+index a4eae8d..60d115d 100644
+--- a/src/main.hpp
++++ b/src/main.hpp
+@@ -129,6 +129,13 @@ extern GamescopeUpscaleFilter g_wantedUpscaleFilter;
+ extern GamescopeUpscaleScaler g_wantedUpscaleScaler;
+ extern int g_upscaleFilterSharpness;
+
++// Steam's "Sharp" scaling filter maps to FSR; on Snapdragon hardware the
++// Qualcomm GSR shader gives better quality/perf, so substitute it in for
++// FSR requests unless explicitly disabled. Live-tunable via the
++// GAMESCOPE_FORCE_FSR_AS_QSR root window property; the
++// GAMESCOPE_FORCE_FSR_AS_QSR env var controls the startup default.
++extern bool g_bForceFSRAsGSR;
++
+ extern bool g_bBorderlessOutputWindow;
+
+ extern bool g_bExposeWayland;
+diff --git a/src/steamcompmgr.cpp b/src/steamcompmgr.cpp
+index b8b9a99..804d575 100644
+--- a/src/steamcompmgr.cpp
++++ b/src/steamcompmgr.cpp
+@@ -2860,9 +2860,12 @@ paint_all( global_focus_t *pFocus, bool async )
+ 					paint_window(w, w, &frameInfo, pFocus->cursor, PaintWindowFlag::BasePlane | PaintWindowFlag::DrawBorders, 1.0f, override);
+
+ 					bool needsScaling = frameInfo.layers.get( 0 ).scale.x < 0.999f && frameInfo.layers.get( 0 ).scale.y < 0.999f;
+-					frameInfo.useFSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::FSR && needsScaling;
++					bool bFSRAsGSR = g_bForceFSRAsGSR && g_upscaleFilter == GamescopeUpscaleFilter::FSR &&
++						needsScaling && frameInfo.layers.get( 0 ).supportsGSR();
++					frameInfo.useFSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::FSR && needsScaling && !bFSRAsGSR;
+ 					frameInfo.useNISLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::NIS && needsScaling;
+-					frameInfo.useGSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::GSR && frameInfo.layers.get( 0 ).supportsGSR();
++					frameInfo.useGSRLayer0 = ( g_upscaleFilter == GamescopeUpscaleFilter::GSR &&
++						frameInfo.layers.get( 0 ).supportsGSR() ) || bFSRAsGSR;
+ 				}
+ 				if ( pFocus == GetCurrentFocus() )
+ 					update_touch_scaling( &frameInfo );
+@@ -6685,6 +6688,12 @@ handle_property_notify(xwayland_ctx_t *ctx, XPropertyEvent *ev)
+ 		if ( g_upscaleFilter == GamescopeUpscaleFilter::FSR || g_upscaleFilter == GamescopeUpscaleFilter::NIS || g_upscaleFilter == GamescopeUpscaleFilter::GSR )
+ 			hasRepaint = true;
+ 	}
++	if ( ev->atom == ctx->atoms.gamescopeForceFSRAsGSR )
++	{
++		g_bForceFSRAsGSR = !!get_prop( ctx, ctx->root, ctx->atoms.gamescopeForceFSRAsGSR, 1 );
++		if ( g_upscaleFilter == GamescopeUpscaleFilter::FSR || g_upscaleFilter == GamescopeUpscaleFilter::GSR )
++			hasRepaint = true;
++	}
+ 	if ( ev->atom == ctx->atoms.gamescopeXWaylandModeControl )
+ 	{
+ 		std::vector< uint32_t > xwayland_mode_ctl;
+@@ -7845,9 +7854,12 @@ void update_wayland_res(CommitDoneList_t *doneCommits, steamcompmgr_win_t *w, Re
+ 		zoomScaleRatio = 1.0f;
+ 		globalScaleRatio = 1.0f;
+ 		paint_window_commit( newCommit, w, w, &upscaledFrameInfo, nullptr );
+-		upscaledFrameInfo.useFSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::FSR;
++		bool bFSRAsGSRUpscaled = g_bForceFSRAsGSR && g_upscaleFilter == GamescopeUpscaleFilter::FSR &&
++			upscaledFrameInfo.layers.get( 0 ).supportsGSR();
++		upscaledFrameInfo.useFSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::FSR && !bFSRAsGSRUpscaled;
+ 		upscaledFrameInfo.useNISLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::NIS;
+-		upscaledFrameInfo.useGSRLayer0 = g_upscaleFilter == GamescopeUpscaleFilter::GSR && upscaledFrameInfo.layers.get( 0 ).supportsGSR();
++		upscaledFrameInfo.useGSRLayer0 = ( g_upscaleFilter == GamescopeUpscaleFilter::GSR &&
++			upscaledFrameInfo.layers.get( 0 ).supportsGSR() ) || bFSRAsGSRUpscaled;
+ 		globalScaleRatio = flOldGlobalScale;
+ 		zoomScaleRatio = flOldZoomScale;
+ 		overscanScaleRatio = flOldOverscanScale;
+@@ -8357,6 +8369,7 @@ void init_xwayland_ctx(uint32_t serverId, gamescope_xwayland_server_t *xwayland_
+ 	ctx->atoms.gamescopeScalingFilter = XInternAtom( ctx->dpy, "GAMESCOPE_SCALING_FILTER", false );
+ 	ctx->atoms.gamescopeFSRSharpness = XInternAtom( ctx->dpy, "GAMESCOPE_FSR_SHARPNESS", false );
+ 	ctx->atoms.gamescopeSharpness = XInternAtom( ctx->dpy, "GAMESCOPE_SHARPNESS", false );
++	ctx->atoms.gamescopeForceFSRAsGSR = XInternAtom( ctx->dpy, "GAMESCOPE_FORCE_FSR_AS_QSR", false );
+
+ 	ctx->atoms.gamescopeXWaylandModeControl = XInternAtom( ctx->dpy, "GAMESCOPE_XWAYLAND_MODE_CONTROL", false );
+ 	ctx->atoms.gamescopeFPSLimit = XInternAtom( ctx->dpy, "GAMESCOPE_FPS_LIMIT", false );
+diff --git a/src/xwayland_ctx.hpp b/src/xwayland_ctx.hpp
+index 6427a00..4d94374 100644
+--- a/src/xwayland_ctx.hpp
++++ b/src/xwayland_ctx.hpp
+@@ -166,6 +166,7 @@ struct xwayland_ctx_t final : public gamescope::IWaitable
+ 		Atom gamescopeScalingFilter;
+ 		Atom gamescopeFSRSharpness;
+ 		Atom gamescopeSharpness;
++		Atom gamescopeForceFSRAsGSR;
+
+ 		Atom gamescopeXWaylandModeControl;
+
