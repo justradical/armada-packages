@@ -17,6 +17,7 @@ Patch1:         0001-load-hexagonrpcd-firmware.patch
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
 Requires:       qbootctl
+Requires:       make-dynpart-mappings
 
 %{?systemd_requires}
 
