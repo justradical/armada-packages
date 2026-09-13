@@ -14,6 +14,7 @@ Source0:        %{forgeurl}/archive/%{commit}/%{name}-%{commit}.tar.gz
 Source1:        60-hexagonrpc.rules
 
 Patch1:         0001-data-install-units-to-the-canonical-systemd-unit-dir.patch
+Patch2:         0002-use-msm-firmware-loader-dir.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 1.1
@@ -22,13 +23,13 @@ BuildRequires:  pkgconfig(systemd)
 BuildRequires:  systemd-rpm-macros
 
 Requires(pre):  shadow-utils
+Recommends:     msm-firmware-loader
 %{?systemd_requires}
 
 %description
 HexagonRPC talks FastRPC to the Context Hub Runtime Environment running on a
 Qualcomm DSP, serving files to it and relaying its remote procedure calls
-back to a listener on the application processor. This build fixes systemd
-unit installation to always land in the arch-independent unit directory.
+back to a listener on the application processor.
 
 %prep
 %autosetup -n %{name}-%{commit} -p1
