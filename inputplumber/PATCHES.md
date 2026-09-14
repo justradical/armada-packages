@@ -16,5 +16,6 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
 - `patches/0005-feat-Hardware-Support-Qualcomm-SSC-sensors.patch`
   source: https://github.com/ShadowBlip/InputPlumber/pull/590
   notes: rebased on latest InputPlumber
-- `patches/0005-add-fastrpc-config-to-devices.patch`
+- `patches/0006-add-fastrpc-config-to-devices.patch`
   source: armada
+  notes: fastrpc matcher pinned to fastrpc-adsp; boards like the Retroid Pocket 6 also expose fastrpc-cdsp/-cdsp-secure, and an unqualified matcher spawns doomed SSC CompositeDevices on the compute DSP.
