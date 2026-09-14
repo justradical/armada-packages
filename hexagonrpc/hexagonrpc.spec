@@ -15,6 +15,7 @@ Source0:        %{forgeurl}/archive/%{commit}/%{name}-%{commit}.tar.gz
 Patch1:         0001-data-install-units-to-the-canonical-systemd-unit-dir.patch
 Patch2:         0002-use-msm-firmware-loader-dir.patch
 Patch3:         0003-run-hexagonrpcd-as-root.patch
+Patch4:         0004-bring-hexagonrpcd-back-after-resume.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 1.1
@@ -41,13 +42,13 @@ back to a listener on the application processor.
 %meson_install
 
 %post
-%systemd_post hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service
+%systemd_post hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service hexagonrpcd-resume.service
 
 %preun
-%systemd_preun hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service
+%systemd_preun hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service hexagonrpcd-resume.service
 
 %postun
-%systemd_postun_with_restart hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service
+%systemd_postun_with_restart hexagonrpcd-adsp-rootpd.service hexagonrpcd-adsp-sensorspd.service hexagonrpcd-sdsp.service hexagonrpcd-resume.service
 
 %files
 %license COPYING
@@ -59,6 +60,7 @@ back to a listener on the application processor.
 %{_unitdir}/hexagonrpcd-adsp-rootpd.service
 %{_unitdir}/hexagonrpcd-adsp-sensorspd.service
 %{_unitdir}/hexagonrpcd-sdsp.service
+%{_unitdir}/hexagonrpcd-resume.service
 %{_mandir}/man1/hexagonrpcd.1*
 
 %changelog

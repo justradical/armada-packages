@@ -11,3 +11,6 @@ to a commit, or `armada` if it is original; a URL source with no `notes` is verb
 - `patches/0003-run-hexagonrpcd-as-root.patch`
   source: armada
   notes: The fastrpc user only had udev-granted access to /dev/fastrpc-*, not to the root-only vendor/persist/dsp paths msm-firmware-loader stages under /run/msm-firmware-loader/hexagonrpc. Run as root instead of chasing that with more ACLs/udev rules.
+- `patches/0004-bring-hexagonrpcd-back-after-resume.patch`
+  source: armada
+  notes: Conflicts=suspend.target stops the hexagonrpcd units on suspend and nothing starts them again, so they stay dead until reboot. Adds a oneshot ordered after suspend.target that restarts the enabled ones.
