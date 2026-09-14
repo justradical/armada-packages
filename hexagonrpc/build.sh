@@ -30,7 +30,6 @@ EOF
     cp /work/hexagonrpc.spec ~/rpmbuild/SPECS/
     sed -i "s/^Version:.*/Version:        ${VERSION}/" ~/rpmbuild/SPECS/hexagonrpc.spec
     cp /work/patches/*.patch ~/rpmbuild/SOURCES/
-    cp /work/60-hexagonrpc.rules ~/rpmbuild/SOURCES/
     spectool -g -R --define "commit ${COMMIT}" ~/rpmbuild/SPECS/hexagonrpc.spec
     dnf -y builddep --define "commit ${COMMIT}" ~/rpmbuild/SPECS/hexagonrpc.spec
     rpmbuild -bb --define "commit ${COMMIT}" ~/rpmbuild/SPECS/hexagonrpc.spec
