@@ -16,6 +16,7 @@ Patch1:         0001-data-install-units-to-the-canonical-systemd-unit-dir.patch
 Patch2:         0002-use-msm-firmware-loader-dir.patch
 Patch3:         0003-run-hexagonrpcd-as-root.patch
 Patch4:         0004-bring-hexagonrpcd-back-after-resume.patch
+Patch5:         0005-gate-hexagonrpcd-on-staged-hexagonfs-tree.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 1.1
