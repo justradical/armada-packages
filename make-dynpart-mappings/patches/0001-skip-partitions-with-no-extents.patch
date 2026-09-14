@@ -1,0 +1,41 @@
+From: Armada <armada@armada-os.dev>
+Date: Mon, 15 Sep 2026 00:00:00 +0000
+Subject: [PATCH] skip partitions with no extents in a slot
+
+On Virtual A/B devices an earlier slot defines a partition with zero
+extents, creating an empty mapping that makes the real definition in a
+later slot fail to create. Also report create failures instead of
+dropping them silently.
+---
+ main.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/main.c b/main.c
+index 5555555..6666666 100644
+--- a/main.c
++++ b/main.c
+@@ -201,6 +201,11 @@
+ 			break;
+ 		}
+ 
++		// An empty definition would take the name and make a later slot's
++		// real definition fail to create.
++		if (le32toh(parts[i].num_extents) == 0)
++			continue;
++
+ 		dmt = dm_task_create(DM_DEVICE_CREATE);
+ 
+ 		// Prevent out of bounds memory access when concatenating strings
+@@ -216,7 +221,9 @@
+ 		for (uint32_t j = 0; j < le32toh(parts[i].num_extents); j++)
+ 			sector += addExtentAsTarget(dmt, &extents[j + le32toh(parts[i].first_extent_index)], sector, blockDevices, buf);
+ 
+-		dm_task_run(dmt);
++		if (!dm_task_run(dmt))
++			fprintf(stderr, "%s: could not create mapping\n", buf);
++
+ 		dm_task_destroy(dmt);
+ 	}
+ }
+-- 
+2.47.0

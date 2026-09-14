@@ -12,6 +12,8 @@ License:        GPL-3.0-only AND Apache-2.0
 URL:            %{forgeurl}
 Source0:        %{forgeurl}/-/archive/%{commit}/%{name}-%{commit}.tar.gz
 
+Patch1:         0001-skip-partitions-with-no-extents.patch
+
 BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  pkgconfig(devmapper)
@@ -27,7 +29,7 @@ targets, so tools like msm-firmware-loader can mount those logical partitions
 without needing Android's own fs_mgr.
 
 %prep
-%autosetup -n %{name}-%{commit}
+%autosetup -n %{name}-%{commit} -p1
 
 %build
 %set_build_flags

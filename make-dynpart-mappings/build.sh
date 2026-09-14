@@ -29,6 +29,7 @@ podman run --rm \
 EOF
     cp /work/make-dynpart-mappings.spec ~/rpmbuild/SPECS/
     sed -i "s/^Version:.*/Version:        ${VERSION}/" ~/rpmbuild/SPECS/make-dynpart-mappings.spec
+    cp /work/patches/*.patch ~/rpmbuild/SOURCES/
     spectool -g -R --define "commit ${COMMIT}" ~/rpmbuild/SPECS/make-dynpart-mappings.spec
     dnf -y builddep --define "commit ${COMMIT}" ~/rpmbuild/SPECS/make-dynpart-mappings.spec
     rpmbuild -bb --define "commit ${COMMIT}" ~/rpmbuild/SPECS/make-dynpart-mappings.spec
