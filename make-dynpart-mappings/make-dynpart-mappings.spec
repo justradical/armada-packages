@@ -5,7 +5,7 @@
 Name:           make-dynpart-mappings
 # overwritten from BASE.env by build.sh
 Version:        0
-Release:        1%{?dist}.armada
+Release:        2%{?dist}.armada
 Summary:        Sets up device-mapper targets for Android dynamic partitions
 
 License:        GPL-3.0-only AND Apache-2.0
@@ -13,6 +13,7 @@ URL:            %{forgeurl}
 Source0:        %{forgeurl}/-/archive/%{commit}/%{name}-%{commit}.tar.gz
 
 Patch1:         0001-skip-partitions-with-no-extents.patch
+Patch2:         0002-map-partitions-defined-in-later-metadata-slots.patch
 
 BuildRequires:  gcc
 BuildRequires:  make

@@ -6,4 +6,7 @@ to a commit, or `armada` if it is original; a URL source with no `notes` is verb
 
 - `patches/0001-skip-partitions-with-no-extents.patch`
   source: armada
-  notes: On a Virtual A/B device (AYN Thor, freshly EDL'd) slot 0 defines vendor_b with zero extents. The tool created that empty mapping first, so slot 2's real 8-extent vendor_b failed DM_DEVICE_CREATE silently, leaving msm-firmware-loader an empty device to mount. Skips zero-extent definitions and reports create failures.
+  notes: Needed by 0002: a zero-target mapping still registers as ACTIVE, so creating one for slot 0's empty vendor_b makes 0002 skip slot 2's real definition as already-mapped.
+- `patches/0002-map-partitions-defined-in-later-metadata-slots.patch`
+  source: armada
+  notes: The AYN Thor's super has three metadata slots with the current vendor_b (8 extents) in slot 2, but the google-sargo retrofit check broke out of the slot loop after slot 0 ("warn: This looks like metadata for retrofit partitions"), leaving only the stale _a partitions. Replaces that break with a per-partition check for an existing mapping, so duplicate slots still map once.
